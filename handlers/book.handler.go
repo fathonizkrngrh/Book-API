@@ -140,48 +140,62 @@ func (c *bookAPI) UpdateBook(w http.ResponseWriter, r *http.Request, ps httprout
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
-    var newCategory forms.UpdateCategory
-
-    if err := json.NewDecoder(r.Body).Decode(&newCategory); err != nil {
-        utils.ErrorJSON(w, err, "BAD REQUEST",http.StatusBadRequest)
+    var newBook forms.InsertBook
+	err := json.NewDecoder(r.Body).Decode(&newBook)
+	if err != nil {
+		utils.ErrorJSON(w, err, "BAD REQUEST",http.StatusBadRequest)
 		return
-    }
+	}
 
-	isDuplicate, err := c.bookRepo.IsDuplicate(ctx, newCategory.Name)
+	isDuplicate, err := c.bookRepo.IsDuplicate(ctx, newBook.Title)
 	if err != nil {
 		utils.ErrorJSON(w, err, "INTERNAL SERVER ERROR", http.StatusInternalServerError)
 		return
 	}
 
+	var validationErrors []string
+
 	if isDuplicate {
-		utils.ErrorJSON(w, errors.New("Data category already exist"), "CONFLICT", http.StatusConflict)
+		validationErrors = append(validationErrors, "Book with this title already exists")
+	}
+
+	if !utils.IsValidURL(newBook.ImageURL) {
+		validationErrors = append(validationErrors, "Invalid image URL format")
+	}
+
+	if newBook.ReleaseYear < 1980 || newBook.ReleaseYear > 2021 {
+		validationErrors = append(validationErrors, "Invalid release year")
+	}
+
+	if len(validationErrors) > 0 {
+		errorMessage := "Validation failed: " + strings.Join(validationErrors, ", ")
+		utils.ErrorJSON(w, errors.New(errorMessage), "INTERNAL SERVER ERROR", http.StatusInternalServerError)
 		return
 	}
 
-    var idCategory = utils.ParseInt(ps.ByName("id"))
+	newBook.Thickness = utils.CheckThickness(newBook.TotalPage)
 
-    if err := c.bookRepo.UpdateByID(ctx, newCategory, idCategory); err != nil {
-        utils.ErrorJSON(w, err, "INTERNAL SERVER ERROR",http.StatusInternalServerError)
+	if err := c.bookRepo.Insert(ctx, newBook); err != nil {
+		utils.ErrorJSON(w, err, "INTERNAL SERVER ERROR",http.StatusInternalServerError)
 		return
-    }
+	}
 
     payload := utils.JsonResponse{
 		Code: http.StatusCreated,
 		Status: "CREATED",
-		Message: fmt.Sprintf("Success update category %v", newCategory.Name),
-		Data: newCategory,
-	}
-  
+		Message: fmt.Sprintf("Success update book %v", newBook.Title),
+		Data: newBook,
+	}  
 	utils.WriteJSON(w, http.StatusCreated, payload)
 }
 
-func (c *bookAPI) DeleteCategory(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func (c *bookAPI) DeleteBook(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
-    var idCategory = utils.ParseInt(ps.ByName("id"))
+    var idBook = utils.ParseInt(ps.ByName("id"))
 
-    if err := c.bookRepo.DeleteByID(ctx, idCategory); err != nil {
+    if err := c.bookRepo.DeleteByID(ctx, idBook); err != nil {
         utils.ErrorJSON(w, err, "INTERNAL SERVER ERROR",http.StatusInternalServerError)
 		return
     }
@@ -189,7 +203,7 @@ func (c *bookAPI) DeleteCategory(w http.ResponseWriter, _ *http.Request, ps http
     payload := utils.JsonResponse{
 		Code: http.StatusOK,
 		Status: "OK",
-		Message: fmt.Sprintf("Success delete category %v", idCategory),
+		Message: fmt.Sprintf("Success delete book %v", idBook),
 	}
   
 	utils.WriteJSON(w, http.StatusCreated, payload)

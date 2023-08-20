@@ -9,21 +9,25 @@ import (
 )
 
 type APIHandler struct {
-	CategoryAPIHandler    handlers.CategoryAPI
-	BangunDatarAPIHandler    handlers.BangunDatarAPI
+	CategoryAPIHandler    	handlers.CategoryAPI
+	BookAPIHandler    		handlers.BookAPI
+	BangunDatarAPIHandler   handlers.BangunDatarAPI
 }
 
 func Router() http.Handler {
 	router := httprouter.New()
 
 	categoryRepo := repositories.NewCategoryRepo()
+	bookRepo := repositories.NewBookRepo()
 
 	categoryAPIHandler := handlers.NewCategoryAPI(categoryRepo)
+	bookAPIHandler := handlers.NewBookAPI(bookRepo)
 	bangunDatarAPIHandler := handlers.NewBangunDatarAPI()
 
 	apiHandler := APIHandler{
-		CategoryAPIHandler:    categoryAPIHandler,
-		BangunDatarAPIHandler:    bangunDatarAPIHandler,
+		CategoryAPIHandler:    	categoryAPIHandler,
+		BookAPIHandler:    		bookAPIHandler,
+		BangunDatarAPIHandler:  bangunDatarAPIHandler,
 	}
 
 	// Bangun Datar
@@ -38,6 +42,14 @@ func Router() http.Handler {
 	router.POST("/categories", apiHandler.CategoryAPIHandler.InsertCategory)
 	router.PUT("/categories/:id", apiHandler.CategoryAPIHandler.UpdateCategory)
 	router.DELETE("/categories/:id", apiHandler.CategoryAPIHandler.DeleteCategory)
+	router.GET("/categories/:id", apiHandler.CategoryAPIHandler.GetCategoryById)
+
+	// Category
+	router.GET("/books", apiHandler.BookAPIHandler.GetAllBook)
+	router.POST("/books", apiHandler.BookAPIHandler.InsertBook)
+	router.PUT("/books/:id", apiHandler.BookAPIHandler.UpdateBook)
+	router.DELETE("/books/:id", apiHandler.BookAPIHandler.DeleteBook)
+	router.GET("/books/:id", apiHandler.BookAPIHandler.GetBookById)
 
 	return router
 }
